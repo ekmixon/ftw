@@ -99,11 +99,7 @@ class HttpResponse(object):
         for cookie_morsals in list(cookie.values()):
             # If the coverdomain is blank or the domain is an IP
             # set the domain to be the origin
-            if cookie_morsals['domain'] == '' or origin_is_ip:
-                # We want to always add a domain so it's easy to parse later
-                return (cookie, self.dest_addr)
-            # If the coverdomain is set it can be any subdomain
-            else:
+            if cookie_morsals['domain'] != '' and not origin_is_ip:
                 cover_domain = cookie_morsals['domain']
                 # strip leading dots
                 # Find all leading dots not just first one
@@ -119,9 +115,7 @@ class HttpResponse(object):
                 psl_path = os.path.join(os.path.dirname(__file__),
                                         'util', 'public_suffix_list.dat')
                 # Check if the public suffix list is present in the ftw dir
-                if os.path.exists(psl_path):
-                    pass
-                else:
+                if not os.path.exists(psl_path):
                     raise errors.TestError(
                         'unable to find the needed public suffix list',
                         {
@@ -132,7 +126,7 @@ class HttpResponse(object):
                     with open(psl_path, 'r', encoding='utf-8') as fo:
                         for line in fo:
                             if line[:2] == '//' or line[0] == ' ' or \
-                               line[0].strip() == '':
+                                   line[0].strip() == '':
                                 continue
                             if cover_domain == line.strip():
                                 return False
@@ -158,17 +152,17 @@ class HttpResponse(object):
                 bvalue = cover_domain.lower()
                 hdn = self.dest_addr.lower()
                 nend = hdn.find(bvalue)
-                if nend is not False:
-                    nvalue = hdn[0:nend]
-                    # Modern browsers don't care about dot
-                    if nvalue[-1] == '.':
-                        nvalue = nvalue[0:-1]
-                else:
+                if nend is False:
                     # We don't have an address of the form
                     return False
+                nvalue = hdn[:nend]
+                    # Modern browsers don't care about dot
+                if nvalue[-1] == '.':
+                    nvalue = nvalue[:-1]
                 if nvalue == '':
                     return False
-                return (cookie, self.dest_addr)
+            # We want to always add a domain so it's easy to parse later
+            return (cookie, self.dest_addr)
 
     def process_response(self):
         """
@@ -338,18 +332,14 @@ class HttpUA(object):
         return return_cookies
 
     def build_request(self):
-        request = '#method# #uri##version#%s#headers#%s#data#' % \
-                  (self.CRLF, self.CRLF)
+        request = f'#method# #uri##version#{self.CRLF}#headers#{self.CRLF}#data#'
         request = request.replace(
             '#method#', self.request_object.method)
         # We add a space after here to account for HEAD requests with no url
-        request = request.replace(
-            '#uri#', self.request_object.uri + ' ')
+        request = request.replace('#uri#', f'{self.request_object.uri} ')
         request = request.replace(
             '#version#', self.request_object.version)
-        available_cookies = self.find_cookie()
-        # If the user has requested a tracked cookie and we have one set it
-        if available_cookies:
+        if available_cookies := self.find_cookie():
             cookie_value = ''
             if 'cookie' in list(self.request_object.headers.keys()):
                 # Create a SimpleCookie out of our provided cookie
@@ -366,32 +356,29 @@ class HttpUA(object):
                                 str(self.request_object.headers['cookie']),
                             'function': 'http.HttpResponse.build_request'
                         })
-                result_cookie = {}
-                for cookie_key, cookie_morsal in list(provided_cookie.items()):
-                    result_cookie[cookie_key] = \
-                        provided_cookie[cookie_key].value
+                result_cookie = {
+                    cookie_key: provided_cookie[cookie_key].value
+                    for cookie_key, cookie_morsal in list(provided_cookie.items())
+                }
+
                 for cookie in available_cookies:
                     for cookie_key, cookie_morsal in cookie:
-                        if cookie_key in list(result_cookie.keys()):
-                            # we don't overwrite a user specified
-                            # cookie with a saved one
-                            pass
-                        else:
+                        if cookie_key not in list(result_cookie.keys()):
                             result_cookie[cookie_key] = \
-                                cookie[cookie_key].value
+                                    cookie[cookie_key].value
                 for key, value in list(result_cookie.items()):
-                    cookie_value += (str(key) + '=' +
-                                     str(value) + '; ')
-                    # Remove the trailing semicolon
+                    cookie_value += ((f'{str(key)}=' + str(value)) + '; ')
+                                # Remove the trailing semicolon
                 cookie_value = cookie_value[:-2]
                 self.request_object.headers['cookie'] = cookie_value
             else:
                 for cookie in available_cookies:
                     for cookie_key, cookie_morsal in list(cookie.items()):
-                        cookie_value += (str(cookie_key) + '=' +
-                                         str(cookie_morsal.coded_value) +
-                                         '; ')
-                        # Remove the trailing semicolon
+                        cookie_value += (
+                            f'{str(cookie_key)}=' + str(cookie_morsal.coded_value)
+                        ) + '; '
+
+                                        # Remove the trailing semicolon
                     cookie_value = cookie_value[:-2]
                     self.request_object.headers['cookie'] = cookie_value
 
@@ -399,8 +386,7 @@ class HttpUA(object):
         headers = ''
         if self.request_object.headers != {}:
             for hname, hvalue in self.request_object.headers.items():
-                headers += str(hname) + ': ' + \
-                    str(hvalue) + self.CRLF
+                headers += ((f'{str(hname)}: ' + str(hvalue)) + self.CRLF)
         request = request.replace('#headers#', headers)
 
         # If we have data append it
@@ -410,15 +396,15 @@ class HttpUA(object):
             # Check to see if we have a content type and magic is
             # off (otherwise UTF-8)
             if 'Content-Type' in list(self.request_object.headers.keys()) and \
-               self.request_object.stop_magic is False:
+                   self.request_object.stop_magic is False:
                 pattern = re.compile(r'\;\s{0,1}?charset\=(.*?)(?:$|\;|\s)')
-                m = re.search(pattern,
-                              self.request_object.headers['Content-Type'])
-                if m:
+                if m := re.search(
+                    pattern, self.request_object.headers['Content-Type']
+                ):
                     possible_choices = \
-                        list(set(encodings.aliases.aliases.keys())) + \
-                        list(set(encodings.aliases.aliases.values()))
-                    choice = m.group(1)
+                            list(set(encodings.aliases.aliases.keys())) + \
+                            list(set(encodings.aliases.aliases.values()))
+                    choice = m[1]
                     # Python will allow these aliases but doesn't list them
                     choice = choice.replace('-', '_')
                     choice = choice.lower()
@@ -426,7 +412,7 @@ class HttpUA(object):
                         encoding = choice
             try:
                 data_bytes = \
-                    self.request_object.data.encode(encoding, 'strict')
+                        self.request_object.data.encode(encoding, 'strict')
             except UnicodeError as err:
                 raise errors.TestError(
                     'Error encoding the data with the charset specified',
@@ -479,8 +465,7 @@ class HttpUA(object):
                 break
             # Recv data
             try:
-                data = self.sock.recv(self.RECEIVE_BYTES)
-                if data:
+                if data := self.sock.recv(self.RECEIVE_BYTES):
                     our_data.append(util.ensure_binary(data))
                     begin = time.time()
                 else:
@@ -492,7 +477,7 @@ class HttpUA(object):
                     pass
                 # SSL will return SSLWantRead instead of EAGAIN
                 elif sys.platform == 'win32' and \
-                        err.errno == errno.WSAEWOULDBLOCK:
+                            err.errno == errno.WSAEWOULDBLOCK:
                     pass
                 elif (self.request_object.protocol == 'https' and
                       err.args[0] == ssl.SSL_ERROR_WANT_READ):

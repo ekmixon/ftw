@@ -25,10 +25,8 @@ class Output(object):
                 }
             )
         self.output_dict = output_dict
-        skip_checks = False
-        if self.STATUS not in self.output_dict:
-            skip_checks = True
-        if skip_checks is False and isinstance(output_dict[self.STATUS], list):
+        skip_checks = self.STATUS not in self.output_dict
+        if not skip_checks and isinstance(output_dict[self.STATUS], list):
             # Check the number of integers in the list
             num_ele = len([s for s in output_dict[self.STATUS]
                            if type(s) is int])
@@ -43,8 +41,7 @@ class Output(object):
                         'function': 'ruleset.Output.__init__'
                     }
                 )
-        elif skip_checks is False and isinstance(output_dict[self.STATUS],
-                                                 int):
+        elif not skip_checks and isinstance(output_dict[self.STATUS], int):
             self.status = int(output_dict[self.STATUS])
         else:
             self.status = None
@@ -52,12 +49,12 @@ class Output(object):
         self.no_log_contains_str = self.process_regex(self.NOTLOG)
         self.log_contains_str = self.process_regex(self.LOG)
         self.expect_error = bool(self.output_dict[self.ERROR]) if \
-            self.ERROR in self.output_dict and \
-            self.output_dict[self.ERROR] else None
+                self.ERROR in self.output_dict and \
+                self.output_dict[self.ERROR] else None
         if self.status is None and self.response_contains_str is None \
-                and self.log_contains_str is None \
-                and self.no_log_contains_str is None \
-                and self.expect_error is None:
+                    and self.log_contains_str is None \
+                    and self.no_log_contains_str is None \
+                    and self.expect_error is None:
             raise errors.TestError(
                 'Need at least one status, response_contains '
                 ', no_log_contains, or log_contains',
@@ -115,19 +112,21 @@ class Input(object):
         if self.data != '':
             # Default values for content length and header
             if 'Content-Type' not in list(headers.keys()) and \
-               stop_magic is False:
+                   stop_magic is False:
                 headers['Content-Type'] = 'application/x-www-form-urlencoded'
             # check if encoded and encode if it should be
-            if 'Content-Type' in list(headers.keys()):
-                if headers['Content-Type'] == \
-                   'application/x-www-form-urlencoded' and stop_magic is False:
-                    if util.ensure_str(unquote(self.data)) == self.data:
-                        query_string = parse_qsl(self.data)
-                        if len(query_string) != 0:
-                            encoded_args = urlencode(query_string)
-                            self.data = encoded_args
+            if (
+                'Content-Type' in list(headers.keys())
+                and headers['Content-Type'] == 'application/x-www-form-urlencoded'
+                and stop_magic is False
+                and util.ensure_str(unquote(self.data)) == self.data
+            ):
+                query_string = parse_qsl(self.data)
+                if len(query_string) != 0:
+                    encoded_args = urlencode(query_string)
+                    self.data = encoded_args
             if 'Content-Length' not in list(headers.keys()) and \
-               stop_magic is False:
+                   stop_magic is False:
                 # The two is for the trailing CRLF and the one after
                 headers['Content-Length'] = len(self.data)
 
@@ -190,6 +189,5 @@ class Ruleset(object):
             raise e
         except Exception as e:
             raise Exception(
-                'Caught error. Message: %s on test with metadata: %s'
-                % (str(e), str(self.meta))
+                f'Caught error. Message: {str(e)} on test with metadata: {str(self.meta)}'
             )

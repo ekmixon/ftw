@@ -32,11 +32,7 @@ class TestRunner(object):
         output stage. It will flag true on the first log_contains regex match
         and then assert on the flag at the end of the function
         """
-        found = False
-        for line in lines:
-            if log_contains.search(line):
-                found = True
-                break
+        found = any(log_contains.search(line) for line in lines)
         if negate:
             assert not found
         else:
@@ -55,9 +51,7 @@ class TestRunner(object):
                     'response_object': response_object,
                     'function': 'testrunner.TestRunner.test_response'
                 })
-        if regex.search(util.ensure_str(response_object.response)):
-            assert True
-        else:
+        if not regex.search(util.ensure_str(response_object.response)):
             assert False
 
     def test_response_str(self, response, regex):
@@ -65,9 +59,7 @@ class TestRunner(object):
         Checks if the response response contains a regex specified in the
         output stage. It will assert that the regex is present.
         """
-        if regex.search(util.ensure_str(response)):
-            assert True
-        else:
+        if not regex.search(util.ensure_str(response)):
             assert False
 
     def query_for_stage_results(self, tablename):
@@ -79,8 +71,7 @@ class TestRunner(object):
         database, they can just open the database/modify it without
         using our program
         """
-        q = 'SELECT * FROM %s WHERE stage = ? AND test_id = ?' % tablename
-        return q
+        return f'SELECT * FROM {tablename} WHERE stage = ? AND test_id = ?'
 
     def run_stage_with_journal(self, rule_id, test, journal_file,
                                tablename, logger_obj):
@@ -123,12 +114,12 @@ class TestRunner(object):
                stage.output.no_log_contains_str):
                 logger_obj.set_times(start, end)
                 lines = logger_obj.get_logs()
-                if stage.output.log_contains_str:
-                    self.test_log(lines, stage.output.log_contains_str, False)
-                if stage.output.no_log_contains_str:
-                    # The last argument means that we should negate the resp
-                    self.test_log(lines, stage.output.no_log_contains_str,
-                                  True)
+            if stage.output.log_contains_str:
+                self.test_log(lines, stage.output.log_contains_str, False)
+            if stage.output.no_log_contains_str:
+                # The last argument means that we should negate the resp
+                self.test_log(lines, stage.output.no_log_contains_str,
+                              True)
             if stage.output.response_contains_str:
                 self.test_response_str(response,
                                        stage.output.response_contains_str)
@@ -149,8 +140,7 @@ class TestRunner(object):
             response = None
             status = None
             try:
-                print('Running test %s from rule file %s' %
-                      (test.test_title, rule_id))
+                print(f'Running test {test.test_title} from rule file {rule_id}')
                 if not http_ua:
                     http_ua = http.HttpUA()
                 start = datetime.datetime.utcnow()
@@ -158,7 +148,7 @@ class TestRunner(object):
                 response = http_ua.response_object.response
                 status = http_ua.response_object.status
             except errors.TestError as e:
-                print('%s got error. %s' % (test.test_title, str(e)))
+                print(f'{test.test_title} got error. {str(e)}')
                 response = str(e)
                 status = -1
             finally:

@@ -11,12 +11,10 @@ class LoggerTestObj(logchecker.LogChecker):
         if self.do_nothing:
             return []
         else:
-            return [str(self.start) + ' rule-id-' +
-                    str(random.randint(10, 99))]
+            return [(f'{str(self.start)} rule-id-' + str(random.randint(10, 99)))]
 
     def get_logs(self):
-        logs = self.generate_random_logs()
-        return logs
+        return self.generate_random_logs()
 
 
 @pytest.fixture

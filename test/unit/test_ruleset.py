@@ -22,8 +22,7 @@ def test_input():
     input_1 = ruleset.Input()
     assert(input_1.uri == '/')
     headers = {'Host': 'domain.com', 'User-Agent': 'Zack'}
-    dictionary = {}
-    dictionary['headers'] = headers
+    dictionary = {'headers': headers}
     input_2 = ruleset.Input(**dictionary)
     assert(len(list(input_2.headers.keys())) == 2)
     dictionary_2 = {'random_key': 'bar'}

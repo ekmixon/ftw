@@ -12,10 +12,7 @@ for root, dirs, files in os.walk('waf-research', topdown=False):
 
 for fname in filelist:
     f = open(fname, 'r')
-    request = ''
-    for line in f.readlines():
-        if line[0] != '#':
-            request += line
+    request = ''.join(line for line in f if line[0] != '#')
     req = request_to_yaml.Request()
     request = request.replace('\n', '\r\n')
     req.get_request_line(request)
@@ -24,5 +21,5 @@ for fname in filelist:
     yaml_out = req.generate_yaml()
     newfname = (fname.split('/')[-1]).split('.')[0]
     print(newfname)
-    req.write_yaml('output/' + newfname + '.yaml', yaml_out)
+    req.write_yaml(f'output/{newfname}.yaml', yaml_out)
     # print yaml_out

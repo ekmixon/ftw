@@ -53,9 +53,10 @@ def test_cookies3():
                                     '5bf890fdd02481614b01cd6cd30911c6733e3e'
                                     '6f79e72aa; XYZ=123'})
     http_ua.send_request(x)
-    assert(set([chunk.split('=')[0].strip() for chunk in
-                http_ua.request_object.headers['cookie'].split(';')]) ==
-           set(['XYZ', 'TS01247332']))
+    assert {
+        chunk.split('=')[0].strip()
+        for chunk in http_ua.request_object.headers['cookie'].split(';')
+    } == {'XYZ', 'TS01247332'}
 
 
 def test_cookies4():

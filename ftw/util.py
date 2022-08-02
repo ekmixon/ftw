@@ -11,10 +11,12 @@ def get_insert_statement(table_name):
     """
     Prepare SQL statement to be inserted into the FTW journal
     """
-    q = 'INSERT INTO {tn} (rule_id, test_id, time_start, time_end, ' \
-        'response_blob, status_code, stage) VALUES(?, ?, ?, ?, ?, ?, ?)'. \
-        format(tn=table_name)
-    return q
+    return (
+        'INSERT INTO {tn} (rule_id, test_id, time_start, time_end, '
+        'response_blob, status_code, stage) VALUES(?, ?, ?, ?, ?, ?, ?)'.format(
+            tn=table_name
+        )
+    )
 
 
 def instantiate_database(sqlite_file='ftwj.sqlite'):
@@ -63,10 +65,7 @@ def get_rulesets(ruledir, recurse):
     elif os.path.isfile(ruledir):
         yaml_files = [ruledir]
     extracted_files = extract_yaml(yaml_files)
-    rulesets = []
-    for extracted_yaml in extracted_files:
-        rulesets.append(ruleset.Ruleset(extracted_yaml))
-    return rulesets
+    return [ruleset.Ruleset(extracted_yaml) for extracted_yaml in extracted_files]
 
 
 def get_files(directory, extension):
@@ -74,7 +73,7 @@ def get_files(directory, extension):
     Take a directory and an extension and return the files
     that match the extension
     """
-    return glob('%s/*.%s' % (directory, extension))
+    return glob(f'{directory}/*.{extension}')
 
 
 def extract_yaml(yaml_files):

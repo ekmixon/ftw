@@ -9,7 +9,6 @@ class Request():
 
     def double_quote(self, mystr):
         return mystr
-        return '"' + str(mystr) + '"'
 
     def generate_yaml(self):
         data = dict(
